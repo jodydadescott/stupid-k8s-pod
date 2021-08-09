@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+set -x
+
+function main() {
+  local pod
+  pod=$(kubectl get pods --selector=app=singleton  -o=jsonpath='{.items[0].metadata.name}')
+  [[ "$pod" ]] || { err "Unable to get pod"; return 2; }
+  kubectl exec -it "$pod" -- bash
+}
+
+function err() { echo "$@" 1>&2; }
+
+main "$@"
+

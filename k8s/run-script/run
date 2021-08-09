@@ -1,0 +1,96 @@
+#!/bin/bash -e
+
+# Set var EVENT_LOOP_INTERVAL to desired interval period in seconds.
+# If not set then the default value of $EVENT_LOOP_INTERVAL_DEFAULT
+# will be used.
+#
+# Set var START_DELAY to desired period of seconds. If not set then
+# the default value of $START_DELAY_DEFAULT will be used.
+
+EVENT_LOOP_INTERVAL_DEFAULT=10
+START_DELAY_DEFAULT=10
+
+function main() {
+  err "Starting"
+  cd "$(dirname "$0")" || { err "Unable to change to working directory"; return 3; }
+  run=true
+  trap sigterm SIGTERM
+  trap sigint SIGINT
+  trap sighup SIGHUP
+
+  local eventLoopInterval
+
+  # shellcheck disable=SC2015
+  [[ "$EVENT_LOOP_INTERVAL" ]] && {
+    eventLoopInterval=$EVENT_LOOP_INTERVAL
+    err "Event loop interval set to $eventLoopInterval (user)"
+  } || {
+    eventLoopInterval=$EVENT_LOOP_INTERVAL_DEFAULT
+    err "Event loop interval set to $eventLoopInterval (default)"
+  } 
+
+  [ "$eventLoopInterval" -eq "$eventLoopInterval" ] || { err "Event Loop Interval is not a valid integer"; return 2; }
+  [ "$eventLoopInterval" -le 0 ] && { err "Event Loop Interval must be greater then zero"; return 2; }
+
+  local startDelay
+
+  # shellcheck disable=SC2015
+  [[ "$START_DELAY" ]] && {
+    startDelay=$START_DELAY
+    err "Start delay set to $startDelay (user)"
+  } || {
+    startDelay=$START_DELAY_DEFAULT
+    err "Start delay set to $startDelay (default)"
+  } 
+
+  [ "$startDelay" -eq "$startDelay" ] || { err "Start Delay is not a valid integer"; return 2; }
+  [ "$startDelay" -lt 0 ] && { err "Start Delay must be zero or greater"; return 2; }
+
+  [ "$startDelay" -gt 0 ] && {
+    err "Start delay"
+    sleep_for $startDelay
+  }
+
+  err "Running"
+  event_loop $eventLoopInterval ||:
+  err "Goodbye"
+  return 0
+}
+
+function event_loop() {
+  local eventLoopInterval="$1"
+  while $run; do
+    event ||:
+    sleep_for "$eventLoopInterval"
+  done
+}
+
+function event() {
+  [ -f event ] && {
+    err "Executing event"
+    err "<start>"
+    bash -xe event
+    err "<end>"
+  }
+}
+
+function sigterm() { err "Caught SIGTERM"; run=false; }
+function sigint() { err "Caught SIGINT"; run=false; }
+function sighup() { err "Caught SIGHUP"; run=false; }
+
+function sleep_for() {
+  local t=$1
+  [ "$t" -eq "$t" ] || { err "$t is must be a positive integer"; return 2; }
+  [ "$t" -gt 0 ] || { err "$t is an integer but must be positived"; return 2; }
+  err "Sleeping for $t second(s)"
+  local c=0
+  while $run; do
+    ((c=c+1))
+    [ "$c" -gt "$t" ] && return 0
+    sleep 1
+  done
+}
+
+function err() { echo "$@" 1>&2; }
+
+main "$@"

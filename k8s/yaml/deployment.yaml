@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: singleton
+  labels:
+    app: singleton
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: singleton
+  template:
+    metadata:
+      labels:
+        app: singleton
+    spec:
+      containers:
+      - name: singleton
+        image: jodydadescott/stupid-container
+        command: ["/scripts/run"]
+        volumeMounts:
+        - name: wrapper
+          mountPath: /scripts
+      volumes:
+      - name: wrapper
+        configMap:
+          name: run
+          defaultMode: 0744
